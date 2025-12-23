@@ -1,0 +1,76 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: manual-sc
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: db-pvc
+  namespace: db-storage-ns
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: { requests: { storage: {{ .Values.database.storage }} } }
+  storageClassName: manual-sc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db-service
+  namespace: db-storage-ns
+spec:
+  selector: { app: database }
+  ports: [{ port: 5432 }]
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: db
+  namespace: db-storage-ns
+spec:
+  serviceName: "db-service"
+  replicas: 1
+  selector: { matchLabels: { app: database } }
+  template:
+    metadata: { labels: { app: database } }
+    spec:
+      containers:
+      - name: postgres
+        image: {{ .Values.database.postgresImage }}
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom: { secretKeyRef: { name: db-secret, key: password } }
+        volumeMounts:
+        - name: db-data
+          mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: db-data
+        persistentVolumeClaim: { claimName: db-pvc }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-headless
+  namespace: db-storage-ns
+spec:
+  clusterIP: None
+  selector: { app: redis }
+  ports: [{ port: 6379 }]
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+  namespace: db-storage-ns
+spec:
+  serviceName: "redis-headless"
+  replicas: 1
+  selector: { matchLabels: { app: redis } }
+  template:
+    metadata: { labels: { app: redis } }
+    spec:
+      containers:
+      - name: redis
+        image: {{ .Values.database.redisImage }}

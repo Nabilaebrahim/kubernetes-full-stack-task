@@ -1,0 +1,19 @@
+# values.yaml
+global:
+  domain: nabila.local
+
+backend:
+  image: nabilaebrahim/my-backend:v1
+  replicaCount: 1
+  maxReplicas: 5
+  cpuTarget: 50
+
+frontend:
+  image: nabilaebrahim/my-frontend:v1
+  replicaCount: 1
+
+database:
+  postgresImage: postgres:alpine
+  redisImage: redis:alpine
+  storage: 1Gi
+  password: "password123"

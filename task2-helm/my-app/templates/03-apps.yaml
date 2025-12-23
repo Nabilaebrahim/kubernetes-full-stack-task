@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deploy
+  namespace: backend-ns
+spec:
+  replicas: {{ .Values.backend.replicaCount }}
+  selector: { matchLabels: { app: backend } }
+  template:
+    metadata: { labels: { app: backend } }
+    spec:
+      containers:
+      - name: backend
+        image: {{ .Values.backend.image }}
+        resources:
+          requests: { cpu: "100m" }
+          limits: { cpu: "200m" }
+        envFrom: [{ configMapRef: { name: backend-config } }]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: backend-ns
+spec:
+  selector: { app: backend }
+  ports: [{ port: 5000 }]
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend-hpa
+  namespace: backend-ns
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend-deploy
+  minReplicas: {{ .Values.backend.replicaCount }}
+  maxReplicas: {{ .Values.backend.maxReplicas }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.backend.cpuTarget }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-deploy
+  namespace: frontend-ns
+spec:
+  replicas: {{ .Values.frontend.replicaCount }}
+  selector: { matchLabels: { app: frontend } }
+  template:
+    metadata: { labels: { app: frontend } }
+    spec:
+      containers:
+      - name: frontend
+        image: {{ .Values.frontend.image }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: frontend-ns
+spec:
+  selector: { app: frontend }
+  ports: [{ port: 80 }]
